@@ -212,7 +212,6 @@
 
 
 
-
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
@@ -242,13 +241,14 @@ public class RecommendController : ControllerBase
 			return Ok(new
 			{
 				message =
-@"أهلاً في إشراق ✨
-أنا هنا أفهم بشرتك وأعطيك توصية تناسبك 💖
+@"✨ أهلاً في إشراق
 
-وش تحبين أعرف لك؟
-1- نوع بشرتي
-2- روتين مناسب
-3- مكياج يناسبني",
+أنا هنا عشان أفهم بشرتك بشكل أدق وأعطيك توصيات تناسبك فعلاً 💖
+
+قولي لي وش حابة:
+- أبغى أعرف نوع بشرتي
+- أبغى روتين مناسب
+- أبغى مكياج يناسبني",
 				isFinal = false
 			});
 		}
@@ -256,28 +256,28 @@ public class RecommendController : ControllerBase
 		// 🟢 اختيار الهدف
 		if (step[userId] == 1)
 		{
-			if (Contains(text, "1", "بشرة"))
+			if (Contains(text, "بشرة"))
 				data[userId]["mode"] = "skin";
 
-			else if (Contains(text, "2", "روتين"))
+			else if (Contains(text, "روتين"))
 				data[userId]["mode"] = "routine";
 
-			else if (Contains(text, "3", "مكياج"))
+			else if (Contains(text, "مكياج"))
 				data[userId]["mode"] = "makeup";
 
 			else
-				return Ok(new { message = "اختاري 1 أو 2 أو 3 ✨", isFinal = false });
+				return Ok(new { message = "وضحي لي أكثر وش تحتاجين 💖", isFinal = false });
 
 			step[userId] = 2;
 
 			return Ok(new
 			{
-				message = "كيف تحسين بشرتك غالباً؟ (تلمع / ناشفة / عادية / ما أعرف)",
+				message = "كيف تحسين بشرتك غالباً؟ (تلمع / ناشفة / عادية / مو متأكدة)",
 				isFinal = false
 			});
 		}
 
-		// 🧠 تحليل أولي
+		// 🧠 تحليل
 		if (step[userId] == 2)
 		{
 			data[userId]["feeling"] = DetectFeeling(text);
@@ -286,12 +286,11 @@ public class RecommendController : ControllerBase
 
 			return Ok(new
 			{
-				message = "هل تظهر حبوب أو مسام واضحة؟ (نعم / لا)",
+				message = "هل تظهر عندك حبوب أو مسام واضحة؟",
 				isFinal = false
 			});
 		}
 
-		// 🧠 مشاكل البشرة
 		if (step[userId] == 3)
 		{
 			data[userId]["acne"] = text.Contains("نعم") ? "yes" : "no";
@@ -300,12 +299,11 @@ public class RecommendController : ControllerBase
 
 			return Ok(new
 			{
-				message = "كيف يكون ملمس بشرتك بعد الغسيل؟ (مشدودة / عادية)",
+				message = "بعد الغسيل تحسين بشرتك مشدودة ولا طبيعية؟",
 				isFinal = false
 			});
 		}
 
-		// 🧠 تحليل أعمق
 		if (step[userId] == 4)
 		{
 			data[userId]["afterwash"] = text.Contains("مشدودة") ? "dry" : "normal";
@@ -313,25 +311,25 @@ public class RecommendController : ControllerBase
 			string skin = AnalyzeSkin(data[userId]);
 			data[userId]["skin"] = skin;
 
-			// 🔥 يفرق حسب الهدف
 			if (data[userId]["mode"] == "makeup")
 			{
 				step[userId] = 5;
 
 				return Ok(new
 				{
-					message = "تحبين المكياج (ناعم / قوي)?",
+					message = "تحبين المكياج يكون ناعم وطبيعي أو قوي وواضح؟",
 					isFinal = false
 				});
 			}
 
 			if (data[userId]["mode"] == "routine")
 			{
-				step[userId] = 6;
+				step[userId] = 0;
+				data[userId].Clear();
 
 				return Ok(new
 				{
-					message = GenerateRoutine(skin),
+					message = GenerateRoutineDetailed(skin),
 					isFinal = true
 				});
 			}
@@ -342,7 +340,7 @@ public class RecommendController : ControllerBase
 
 			return Ok(new
 			{
-				message = $"✨ نوع بشرتك: {skin}",
+				message = GenerateSkinResult(skin),
 				isFinal = true
 			});
 		}
@@ -363,17 +361,17 @@ public class RecommendController : ControllerBase
 			});
 		}
 
-		return Ok(new { message = "ما فهمت عليك، ممكن توضحين أكثر؟ ✨", isFinal = false });
+		return Ok(new { message = "ممكن توضحي أكثر 💖", isFinal = false });
 	}
 
-	// 🧠 تحليل البشرة الحقيقي
+	// 🧠 تحليل البشرة (معدل)
 	private string AnalyzeSkin(Dictionary<string, string> d)
 	{
 		string feeling = d["feeling"];
 		string acne = d["acne"];
 		string after = d["afterwash"];
 
-		if (feeling == "oily" && acne == "yes") return "دهنية مع حبوب";
+		if (feeling == "oily" && acne == "yes") return "دهنية ومعرّضة للحبوب";
 		if (feeling == "oily") return "دهنية";
 		if (after == "dry") return "جافة";
 		if (feeling == "normal") return "عادية";
@@ -381,7 +379,71 @@ public class RecommendController : ControllerBase
 		return "مختلطة";
 	}
 
-	// 💄 المكياج
+	// ✨ نتيجة البشرة احترافية
+	private string GenerateSkinResult(string skin)
+	{
+		string note = "";
+
+		if (skin.Contains("معرّضة للحبوب"))
+			note = "💡 يفضل استخدام منتجات تنظف المسام وتقلل الالتهاب";
+
+		else if (skin.Contains("دهنية"))
+			note = "💡 بشرتك تحتاج توازن بين التحكم بالزيوت والترطيب";
+
+		else if (skin.Contains("جافة"))
+			note = "💡 التركيز على الترطيب العميق مهم جداً لبشرتك";
+
+		else
+			note = "💡 حافظي على روتين متوازن لبشرتك";
+
+		return
+$@"✨ تحليل إشراق
+
+نوع بشرتك: {skin}
+
+{note}";
+	}
+
+	// 💧 روتين احترافي
+	private string GenerateRoutineDetailed(string skin)
+	{
+		if (skin.Contains("دهنية"))
+		{
+			return
+@"🧴 روتين مناسب لبشرتك الدهنية:
+
+✔ غسول يحتوي على Salicylic Acid لتنظيف المسام
+✔ سيروم Niacinamide لتقليل الزيوت
+✔ مرطب خفيف Oil-Free
+✔ واقي شمس جل
+
+💡 تجنبي المنتجات الثقيلة لأنها تزيد اللمعان";
+		}
+
+		if (skin.Contains("جافة"))
+		{
+			return
+@"💧 روتين للبشرة الجافة:
+
+✔ غسول لطيف بدون رغوة
+✔ سيروم Hyaluronic Acid للترطيب
+✔ كريم يحتوي على Ceramides
+✔ واقي شمس مرطب
+
+💡 ركزي على الترطيب أكثر من التنظيف";
+		}
+
+		return
+@"💖 روتين متوازن:
+
+✔ غسول مناسب
+✔ مرطب خفيف
+✔ واقي شمس يومي
+
+💡 حافظي على توازن بشرتك بدون إفراط";
+	}
+
+	// 💄 مكياج
 	private string GenerateMakeup(string skin, string style)
 	{
 		if (style.Contains("ناعم"))
@@ -389,32 +451,25 @@ public class RecommendController : ControllerBase
 			return
 $@"💄 مكياج ناعم لبشرتك {skin}:
 
-- كريم خفيف
-- ألوان طبيعية
-- لمعة خفيفة";
+✔ كريم أساس خفيف
+✔ كونسيلر بسيط
+✔ ألوان طبيعية
+✔ لمعة خفيفة
+
+💡 إطلالة يومية نظيفة وناعمة";
 		}
 
 		return
 $@"💄 مكياج قوي لبشرتك {skin}:
 
-- تغطية عالية
-- تثبيت قوي
-- ألوان جريئة";
+✔ كريم أساس تغطية عالية
+✔ تثبيت ببودرة
+✔ تحديد واضح
+✔ ألوان جريئة
+
+💡 مناسب للمناسبات والتصوير";
 	}
 
-	// 💧 روتين
-	private string GenerateRoutine(string skin)
-	{
-		if (skin.Contains("دهنية"))
-			return "🧴 غسول + نياسيناميد + مرطب خفيف";
-
-		if (skin.Contains("جافة"))
-			return "💧 غسول لطيف + ترطيب عميق + سيروم";
-
-		return "💖 روتين متوازن + واقي شمس";
-	}
-
-	// 🧠 فهم الكلام
 	private string DetectFeeling(string text)
 	{
 		if (Contains(text, "تلمع", "زيت")) return "oily";
