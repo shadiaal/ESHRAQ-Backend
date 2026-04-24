@@ -220,87 +220,140 @@ using Microsoft.AspNetCore.Mvc;
 [Route("api")]
 public class RecommendController : ControllerBase
 {
-	private static Dictionary<string, int> step = new();
+	private static Dictionary<string, string> state = new();
 	private static Dictionary<string, Dictionary<string, string>> data = new();
 
-	[HttpPost("recommend")]
+	[HttpPost("chat")]
 	public IActionResult Chat([FromBody] ChatRequest req)
 	{
-		string userId = "1"; // بسيط للمدرسة
+		string userId = "1";
+		string text = Normalize(req.Text);
 
-		if (!step.ContainsKey(userId))
+		if (!state.ContainsKey(userId))
 		{
-			step[userId] = 0;
+			state[userId] = "start";
 			data[userId] = new Dictionary<string, string>();
 		}
 
-		string text = Normalize(req.Text);
+		string currentState = state[userId];
 
-		// STEP 0
-		if (step[userId] == 0)
+		// 🟢 البداية
+		if (currentState == "start")
 		{
-			step[userId] = 1;
+			state[userId] = "choose_goal";
 
 			return Ok(new
 			{
-				message = "أهلاً في إشراق ✨ كيف بشرتك؟ (جافة / دهنية / حساسة / عادية / ما أعرف)",
+				message =
+@"أهلاً في إشراق ✨
+أنا هنا أساعدك تفهمين بشرتك وتختارين روتين ومكياج مناسب 💄
+
+اختاري وش تبين:
+1- أعرف نوع بشرتي
+2- روتين عناية مناسب
+3- مكياج يناسبني",
 				isFinal = false
 			});
 		}
 
-		// STEP 1: skin
-		if (step[userId] == 1)
+		// 🟢 اختيار الهدف
+		if (currentState == "choose_goal")
+		{
+			if (text.Contains("1") || text.Contains("بشرتي"))
+			{
+				state[userId] = "skin_q1";
+
+				return Ok(new
+				{
+					message = "تمام ✨ خلينا نعرف نوع بشرتك\n\nهل بشرتك تلمع خلال اليوم؟ (نعم / لا / ما أعرف)",
+					isFinal = false
+				});
+			}
+
+			if (text.Contains("2") || text.Contains("روتين"))
+			{
+				state[userId] = "routine_skin";
+
+				return Ok(new
+				{
+					message = "رائع ✨ أول شيء نحدد بشرتك\nكيف توصفينها؟ (جافة / دهنية / حساسة / ما أعرف)",
+					isFinal = false
+				});
+			}
+
+			if (text.Contains("3") || text.Contains("مكياج"))
+			{
+				state[userId] = "makeup_skin";
+
+				return Ok(new
+				{
+					message = "حلو 💄 عشان أختار لك مكياج مناسب\nايش نوع بشرتك؟ (جافة / دهنية / حساسة / ما أعرف)",
+					isFinal = false
+				});
+			}
+
+			return Ok(new
+			{
+				message = "اختاري رقم 1 أو 2 أو 3 عشان أساعدك بشكل أدق ✨",
+				isFinal = false
+			});
+		}
+
+		// 🟢 سيناريو: تحديد البشرة للمكياج
+		if (currentState == "makeup_skin")
 		{
 			string skin = DetectSkin(text);
 			data[userId]["skin"] = skin;
-			step[userId] = 2;
+			state[userId] = "makeup_style";
 
 			return Ok(new
 			{
-				message = SmartSkinReply(text, skin),
+				message =
+$@"تمام 💖
+
+هل تفضلين:
+1- مكياج يومي ناعم
+2- مكياج مناسبات قوي",
 				isFinal = false
 			});
 		}
 
-		// STEP 2: problem
-		if (step[userId] == 2)
-		{
-			data[userId]["problem"] = text;
-			step[userId] = 3;
-
-			return Ok(new
-			{
-				message = AnalyzeProblem(text),
-				isFinal = false
-			});
-		}
-
-		// STEP 3: routine
-		if (step[userId] == 3)
-		{
-			data[userId]["routine"] = text;
-			step[userId] = 4;
-
-			return Ok(new
-			{
-				message = "رائع ✨ تفضلين مكياج يومي ولا مناسبات؟",
-				isFinal = false
-			});
-		}
-
-		// STEP 4: final
-		if (step[userId] == 4)
+		// 🟢 نوع الإطلالة
+		if (currentState == "makeup_style")
 		{
 			string skin = data[userId]["skin"];
 
-			string result = GenerateFinal(skin);
+			string result = "";
 
-			step[userId] = 0;
+			if (text.Contains("1") || text.Contains("يومي"))
+			{
+				result =
+$@"💄 توصية مكياج يومي:
+
+- كريم أساس خفيف (Tinted Moisturizer)
+- بودرة خفيفة لمنع اللمعة
+- ألوان ناعمة (وردي / بيج)
+
+💡 مناسب لـ {skin} البشرة";
+			}
+			else
+			{
+				result =
+$@"💄 توصية مكياج مناسبات:
+
+- كريم أساس تغطية متوسطة إلى عالية
+- كونتور خفيف
+- روج قوي (نبيذي / أحمر)
+
+💡 مناسب لـ {skin} البشرة";
+			}
+
+			state[userId] = "start";
 			data[userId].Clear();
 
 			return Ok(new
 			{
-				message = result,
+				message = result + "\n\n✨ إشراق اختارك حسب كلامك الحقيقي",
 				isFinal = true
 			});
 		}
@@ -308,120 +361,18 @@ public class RecommendController : ControllerBase
 		return Ok(new { message = "كملّي ✨", isFinal = false });
 	}
 
-	// ===================== SKIN DETECTION =====================
+	// 🧠 فهم البشرة
 	private string DetectSkin(string text)
 	{
-		text = text.ToLower();
-
-		if (text.Contains("جافة") || text.Contains("تقشر") || text.Contains("شد"))
-			return "dry";
-
-		if (text.Contains("دهنية") || text.Contains("تلمع") || text.Contains("زيت"))
-			return "oily";
-
-		if (text.Contains("حساسة") || text.Contains("تحسس") || text.Contains("تحمر"))
-			return "sensitive";
-
-		if (text.Contains("ما اعرف") || text.Contains("مدري"))
-			return "unknown";
-
-		return "normal";
-	}
-
-	// ===================== SMART SKIN REPLY =====================
-	private string SmartSkinReply(string text, string skin)
-	{
-		if (skin == "dry")
-			return Pick(new List<string>
-			{
-				"💧 واضح إن بشرتك تحتاج ترطيب عميق، جربي سيروم الهيالورونيك",
-				"💧 الجفاف غالباً من الغسول القوي، استخدمي مرطب ثقيل",
-				"💧 أهم شيء: غسول لطيف + مرطب قوي + ماء كثير"
-			});
-
-		if (skin == "oily")
-			return Pick(new List<string>
-			{
-				"🧴 بشرتك دهنية، استخدمي غسول ساليسيليك لتنظيم الدهون",
-				"🧴 مرطب خفيف بدون زيوت مهم جداً",
-				"🧴 قللي المنتجات الثقيلة على البشرة"
-			});
-
-		if (skin == "sensitive")
-			return Pick(new List<string>
-			{
-				"🌿 البشرة الحساسة تحتاج منتجات بدون عطور",
-				"🌿 استخدمي مكونات مهدئة مثل Aloe Vera",
-				"🌿 تجنبي التقشير القوي"
-			});
-
-		return "تمام ✨ خلينا نفهم أكثر عن مشكلتك";
-	}
-
-	// ===================== PROBLEM ANALYSIS =====================
-	private string AnalyzeProblem(string text)
-	{
-		text = text.ToLower();
-
-		if (text.Contains("حبوب") && text.Contains("دهني"))
-			return "🧠 واضح عندك حبوب مع دهون → تحتاجين تنظيف عميق + Niacinamide";
-
-		if (text.Contains("حبوب") && text.Contains("جاف"))
-			return "🧠 الحبوب مع الجفاف تعني ضعف حاجز البشرة → نحتاج ترطيب أقوى";
-
-		if (text.Contains("ماكياج") || text.Contains("ميكب"))
-			return MakeupAdvice();
-
-		return Pick(new List<string>
-		{
-			"✨ فهمت عليك، خلينا نخصص لك روتين أفضل",
-			"✨ تمام، واضح إن بشرتك تحتاج تنظيم بسيط",
-			"✨ خلينا نحل المشكلة خطوة خطوة"
-		});
-	}
-
-	// ===================== MAKEUP ADVICE =====================
-	private string MakeupAdvice()
-	{
-		return Pick(new List<string>
-		{
-			"💄 البشرة الدهنية → فاونديشن مطفي + بودرة تثبيت",
-			"💄 البشرة الجافة → فاونديشن مرطب + هايلايتر خفيف",
-			"💄 الإطلالة اليومية → ألوان ناعمة وطبيعية",
-			"💄 المناسبات → كونتور خفيف + روج ثابت"
-		});
-	}
-
-	// ===================== FINAL RESULT =====================
-	private string GenerateFinal(string skin)
-	{
-		string baseText = "✨ تحليل إشراق النهائي\n\n";
-
-		if (skin == "dry")
-			baseText += "💧 روتينك: ترطيب عميق + سيروم + كريم ثقيل";
-		else if (skin == "oily")
-			baseText += "🧴 روتينك: غسول زيتي + نياسيناميد + مرطب خفيف";
-		else if (skin == "sensitive")
-			baseText += "🌿 روتينك: منتجات لطيفة بدون عطور";
-		else
-			baseText += "💖 روتينك: تنظيف + ترطيب + واقي شمس";
-
-		baseText += "\n\n💄 المكياج: " + MakeupAdvice();
-
-		baseText += "\n\n✨ إشراق يفهمك بناءً على كلامك مو اختيارات ثابتة";
-
-		return baseText;
-	}
-
-	// ===================== HELPERS =====================
-	private string Pick(List<string> list)
-	{
-		return list[new Random().Next(list.Count)];
+		if (text.Contains("دهنية") || text.Contains("تلمع")) return "دهنية";
+		if (text.Contains("جافة") || text.Contains("شد")) return "جافة";
+		if (text.Contains("حساسة")) return "حساسة";
+		return "غير محدد";
 	}
 
 	private string Normalize(string text)
 	{
-		return text?.ToLower().Trim() ?? "";
+		return text?.Trim() ?? "";
 	}
 }
 
