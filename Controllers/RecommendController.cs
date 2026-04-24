@@ -248,10 +248,9 @@ public class RecommendController : ControllerBase
 @"أهلاً في إشراق ✨
 أنا هنا أساعدك تفهمين بشرتك وتختارين روتين ومكياج مناسب 💄
 
-اختاري وش تبين:
+اختاري:
 1- أعرف نوع بشرتي
-2- روتين عناية مناسب
-3- مكياج يناسبني",
+2- مكياج يناسبني",
 				isFinal = false
 			});
 		}
@@ -259,93 +258,145 @@ public class RecommendController : ControllerBase
 		// 🟢 اختيار الهدف
 		if (currentState == "choose_goal")
 		{
-			if (text.Contains("1") || text.Contains("بشرتي"))
+			if (text.Contains("1") || text.Contains("بشرة"))
 			{
 				state[userId] = "skin_q1";
 
 				return Ok(new
 				{
-					message = "تمام ✨ خلينا نعرف نوع بشرتك\n\nهل بشرتك تلمع خلال اليوم؟ (نعم / لا / ما أعرف)",
+					message = "هل بشرتك تلمع خلال اليوم؟ (نعم / لا / ما أعرف)",
 					isFinal = false
 				});
 			}
 
-			if (text.Contains("2") || text.Contains("روتين"))
-			{
-				state[userId] = "routine_skin";
-
-				return Ok(new
-				{
-					message = "رائع ✨ أول شيء نحدد بشرتك\nكيف توصفينها؟ (جافة / دهنية / حساسة / ما أعرف)",
-					isFinal = false
-				});
-			}
-
-			if (text.Contains("3") || text.Contains("مكياج"))
+			if (text.Contains("2") || text.Contains("مكياج"))
 			{
 				state[userId] = "makeup_skin";
 
 				return Ok(new
 				{
-					message = "حلو 💄 عشان أختار لك مكياج مناسب\nايش نوع بشرتك؟ (جافة / دهنية / حساسة / ما أعرف)",
+					message = "ايش نوع بشرتك؟ (جافة / دهنية / حساسة / ما أعرف)",
 					isFinal = false
 				});
 			}
 
+			return Ok(new { message = "اختاري 1 أو 2 ✨", isFinal = false });
+		}
+
+		// 🟢 تحليل البشرة - سؤال 1
+		if (currentState == "skin_q1")
+		{
+			if (text.Contains("نعم"))
+				data[userId]["oil"] = "yes";
+			else if (text.Contains("لا"))
+				data[userId]["oil"] = "no";
+			else
+				data[userId]["oil"] = "unknown";
+
+			state[userId] = "skin_q2";
+
 			return Ok(new
 			{
-				message = "اختاري رقم 1 أو 2 أو 3 عشان أساعدك بشكل أدق ✨",
+				message = "هل تحسين بشرتك مشدودة أو ناشفة بعد الغسيل؟ (نعم / لا / ما أعرف)",
 				isFinal = false
 			});
 		}
 
-		// 🟢 سيناريو: تحديد البشرة للمكياج
-		if (currentState == "makeup_skin")
+		// 🟢 تحليل البشرة - سؤال 2
+		if (currentState == "skin_q2")
 		{
-			string skin = DetectSkin(text);
-			data[userId]["skin"] = skin;
-			state[userId] = "makeup_style";
+			if (text.Contains("نعم"))
+				data[userId]["dry"] = "yes";
+			else if (text.Contains("لا"))
+				data[userId]["dry"] = "no";
+			else
+				data[userId]["dry"] = "unknown";
+
+			string oil = data[userId]["oil"];
+			string dry = data[userId]["dry"];
+
+			string skinType = "";
+
+			if (oil == "yes" && dry == "no")
+				skinType = "دهنية";
+			else if (oil == "no" && dry == "yes")
+				skinType = "جافة";
+			else if (oil == "yes" && dry == "yes")
+				skinType = "مختلطة";
+			else
+				skinType = "عادية";
+
+			state[userId] = "start";
+			data[userId].Clear();
 
 			return Ok(new
 			{
 				message =
-$@"تمام 💖
+$@"✨ نوع بشرتك: {skinType}
 
-هل تفضلين:
-1- مكياج يومي ناعم
-2- مكياج مناسبات قوي",
+💡 روتين مناسب:
+- غسول مناسب لنوع بشرتك
+- مرطب يومي
+- واقي شمس ☀️
+
+✨ إشراق حلل بشرتك بناءً على إجاباتك",
+				isFinal = true
+			});
+		}
+
+		// 🟢 مكياج - تحديد البشرة
+		if (currentState == "makeup_skin")
+		{
+			string skin = DetectSkin(text);
+			data[userId]["skin"] = skin;
+
+			if (skin == "غير محدد")
+			{
+				state[userId] = "skin_q1";
+
+				return Ok(new
+				{
+					message = "طيب خلينا نحددها ✨ هل بشرتك تلمع خلال اليوم؟ (نعم / لا)",
+					isFinal = false
+				});
+			}
+
+			state[userId] = "makeup_style";
+
+			return Ok(new
+			{
+				message = "تحبين مكياج: (يومي / مناسبات)",
 				isFinal = false
 			});
 		}
 
-		// 🟢 نوع الإطلالة
+		// 🟢 اختيار نوع المكياج
 		if (currentState == "makeup_style")
 		{
 			string skin = data[userId]["skin"];
-
 			string result = "";
 
-			if (text.Contains("1") || text.Contains("يومي"))
+			if (text.Contains("يومي"))
 			{
 				result =
-$@"💄 توصية مكياج يومي:
+$@"💄 مكياج يومي مناسب لبشرتك {skin}:
 
-- كريم أساس خفيف (Tinted Moisturizer)
-- بودرة خفيفة لمنع اللمعة
+- كريم أساس خفيف
+- بودرة خفيفة
 - ألوان ناعمة (وردي / بيج)
 
-💡 مناسب لـ {skin} البشرة";
+💡 يعطيك لوك طبيعي ومرتب";
 			}
 			else
 			{
 				result =
-$@"💄 توصية مكياج مناسبات:
+$@"💄 مكياج مناسبات مناسب لبشرتك {skin}:
 
-- كريم أساس تغطية متوسطة إلى عالية
-- كونتور خفيف
-- روج قوي (نبيذي / أحمر)
+- كريم أساس تغطية أعلى
+- تثبيت قوي
+- ألوان جريئة
 
-💡 مناسب لـ {skin} البشرة";
+💡 مناسب للسهرات والتصوير";
 			}
 
 			state[userId] = "start";
@@ -353,19 +404,18 @@ $@"💄 توصية مكياج مناسبات:
 
 			return Ok(new
 			{
-				message = result + "\n\n✨ إشراق اختارك حسب كلامك الحقيقي",
+				message = result + "\n\n✨ إشراق اختار لك حسب بشرتك",
 				isFinal = true
 			});
 		}
 
-		return Ok(new { message = "كملّي ✨", isFinal = false });
+		return Ok(new { message = "ما فهمت عليك، جربي تكتبين بشكل أوضح ✨", isFinal = false });
 	}
 
-	// 🧠 فهم البشرة
 	private string DetectSkin(string text)
 	{
-		if (text.Contains("دهنية") || text.Contains("تلمع")) return "دهنية";
-		if (text.Contains("جافة") || text.Contains("شد")) return "جافة";
+		if (text.Contains("دهنية")) return "دهنية";
+		if (text.Contains("جافة")) return "جافة";
 		if (text.Contains("حساسة")) return "حساسة";
 		return "غير محدد";
 	}
