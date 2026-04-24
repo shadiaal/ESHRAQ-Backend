@@ -222,7 +222,7 @@ public class RecommendController : ControllerBase
 	private static Dictionary<string, int> step = new();
 	private static Dictionary<string, Dictionary<string, string>> data = new();
 
-	[HttpPost("chat")]
+	[HttpPost("recommend")]
 	public IActionResult Chat([FromBody] ChatRequest req)
 	{
 		string userId = "1";
