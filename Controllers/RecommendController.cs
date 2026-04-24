@@ -212,6 +212,7 @@
 
 
 
+
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
@@ -233,7 +234,7 @@ public class RecommendController : ControllerBase
 			data[userId] = new Dictionary<string, string>();
 		}
 
-		// 🟢 البداية
+		// 🟢 بداية احترافية
 		if (step[userId] == 0)
 		{
 			step[userId] = 1;
@@ -245,7 +246,7 @@ public class RecommendController : ControllerBase
 
 أنا هنا عشان أفهم بشرتك بشكل أدق وأعطيك توصيات تناسبك فعلاً 💖
 
-قولي لي وش حابة:
+تقدرين تقولين لي وش تحتاجين:
 - أبغى أعرف نوع بشرتي
 - أبغى روتين مناسب
 - أبغى مكياج يناسبني",
@@ -364,14 +365,14 @@ public class RecommendController : ControllerBase
 		return Ok(new { message = "ممكن توضحي أكثر 💖", isFinal = false });
 	}
 
-	// 🧠 تحليل البشرة (معدل)
+	// 🧠 تحليل البشرة
 	private string AnalyzeSkin(Dictionary<string, string> d)
 	{
 		string feeling = d["feeling"];
 		string acne = d["acne"];
 		string after = d["afterwash"];
 
-		if (feeling == "oily" && acne == "yes") return "دهنية ومعرّضة للحبوب";
+		if (feeling == "oily" && acne == "yes") return "دهنية ومعرضة للحبوب";
 		if (feeling == "oily") return "دهنية";
 		if (after == "dry") return "جافة";
 		if (feeling == "normal") return "عادية";
@@ -379,29 +380,17 @@ public class RecommendController : ControllerBase
 		return "مختلطة";
 	}
 
-	// ✨ نتيجة البشرة احترافية
+	// ✨ نتيجة البشرة
 	private string GenerateSkinResult(string skin)
 	{
-		string note = "";
-
-		if (skin.Contains("معرّضة للحبوب"))
-			note = "💡 يفضل استخدام منتجات تنظف المسام وتقلل الالتهاب";
-
-		else if (skin.Contains("دهنية"))
-			note = "💡 بشرتك تحتاج توازن بين التحكم بالزيوت والترطيب";
-
-		else if (skin.Contains("جافة"))
-			note = "💡 التركيز على الترطيب العميق مهم جداً لبشرتك";
-
-		else
-			note = "💡 حافظي على روتين متوازن لبشرتك";
-
 		return
 $@"✨ تحليل إشراق
 
 نوع بشرتك: {skin}
 
-{note}";
+💡 ملاحظات:
+- بشرتك تحتاج عناية مخصصة حسب توازن الزيوت والترطيب
+- اختيار المنتجات المناسبة بيفرق معك بشكل واضح";
 	}
 
 	// 💧 روتين احترافي
@@ -427,7 +416,7 @@ $@"✨ تحليل إشراق
 
 ✔ غسول لطيف بدون رغوة
 ✔ سيروم Hyaluronic Acid للترطيب
-✔ كريم يحتوي على Ceramides
+✔ كريم ثقيل يحتوي على Ceramides
 ✔ واقي شمس مرطب
 
 💡 ركزي على الترطيب أكثر من التنظيف";
@@ -443,7 +432,7 @@ $@"✨ تحليل إشراق
 💡 حافظي على توازن بشرتك بدون إفراط";
 	}
 
-	// 💄 مكياج
+	// 💄 مكياج احترافي
 	private string GenerateMakeup(string skin, string style)
 	{
 		if (style.Contains("ناعم"))
@@ -451,12 +440,12 @@ $@"✨ تحليل إشراق
 			return
 $@"💄 مكياج ناعم لبشرتك {skin}:
 
-✔ كريم أساس خفيف
+✔ كريم أساس خفيف (Light Coverage)
 ✔ كونسيلر بسيط
-✔ ألوان طبيعية
+✔ ألوان طبيعية (نود / وردي)
 ✔ لمعة خفيفة
 
-💡 إطلالة يومية نظيفة وناعمة";
+💡 يعطيك إطلالة نظيفة وطبيعية";
 		}
 
 		return
